@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RMMC QR-AMS - Student Portal</title>
+<link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="48x48" href="favicon-48x48.png">
+<link rel="shortcut icon" href="favicon.ico">
+<link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css?v=4">
+<script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="lib.js"></script>
+
+</head>
+<body>
+
+  <div class="topbar">
+    <div style="display:flex; justify-content:center; align-items:center; gap:14px;">
+      <div class="seal"><img src="seal.png" alt="RMMC seal"></div>
+      <div class="seal"><img id="ssoLogo" src="logo-sso.png" alt="Student Services Office logo" onerror="this.parentNode.style.display='none';"></div>
+    </div>
+    <h1>RAMON MAGSAYSAY MEMORIAL COLLEGES,&nbsp;INC.</h1>
+    <p style="margin:2px 0 4px; font-weight:700; font-size:14px; letter-spacing:.08em; text-transform:uppercase; color:#fff;">Student Services Office</p>
+    <p class="addr">Pioneer Avenue, General Santos City</p>
+    <div class="divider"></div>
+    <p class="system">QR - Attendance Management System</p>
+    <p class="subsystem">Student Attendance and Clearance</p>
+  </div>
+
+  <div class="content">
+    <!-- VERIFY (public, no login — what a PDF's QR code links to) -->
+    <div class="pass" id="verifyView" style="display:none; max-width:480px;">
+      <h2>Document Verification</h2>
+      <p class="sub">This shows the live record — independent of any downloaded PDF.</p>
+      <div id="verifyBody"><div class="loading">Checking record…</div></div>
+    </div>
+
+    <!-- LOGIN -->
+    <div class="pass" id="loginView">
+      <h2>Check Your Record</h2>
+      <p class="sub">Enter your Student Number and Last Name to view your attendance and clearance record.</p>
+      <div class="err" id="loginErr"></div>
+      <div class="field">
+        <label>Student Number</label>
+        <input type="text" id="studentNo" placeholder="Enter your Student Number" autocomplete="off">
+      </div>
+      <div class="field">
+        <label>Password</label>
+        <div class="pw-wrap">
+          <input type="password" id="lastName" placeholder="Enter your Password" autocomplete="current-password">
+          <button type="button" class="pw-toggle" id="pwToggle" aria-label="Show password">Show</button>
+        </div>
+        <div class="pw-first-time">First time logging in? Use your <strong>Last Name</strong> as your temporary password.</div>
+      </div>
+      <button class="btn" id="loginBtn">View My Record</button>
+      <div class="cf-turnstile" id="turnstile-login" data-sitekey="0x4AAAAAAD-DtBt5tcLsSpT8" data-callback="onTurnstileLoginSuccess" style="margin-top:16px;"></div>
+      <div class="pw-forgot"><strong>Forgot password?</strong> For Password Reset, contact <a href="https://www.facebook.com/ssosystemsupport" target="_blank" rel="noopener noreferrer">SSO System Support</a>.</div>
+    </div>
+
+    <!-- DASHBOARD -->
+    <div class="shell" id="dashView">
+      <div class="toolbar">
+        <div class="toolbar-terms">
+          <select id="yearSelect"></select>
+          <select id="semesterSelect">
+            <option value="1st Sem">1st Sem</option>
+            <option value="2nd Sem">2nd Sem</option>
+          </select>
+        </div>
+        <div class="live-status" id="liveStatus"></div>
+        <div class="toolbar-actions">
+          <button class="logout pw-link" id="changePwBtn" type="button">Change Password</button>
+          <button class="logout" id="logoutBtn">Sign out</button>
+        </div>
+      </div>
+
+      <div class="scope-tabs" id="scopeTabs">
+        <button class="scope-tab active" data-scope="institutional" type="button">Institutional</button>
+        <button class="scope-tab" data-scope="college" type="button">College/Departmental</button>
+      </div>
+
+      <div class="record-card" id="recordCard">
+        <div class="record-top">
+          <div>
+            <h3 id="studName">—</h3>
+            <div class="id-meta"><span class="sno" id="studNo">—</span> <span id="studMeta"></span></div>
+          </div>
+          <div class="status-pill status-pending" id="statusPill">
+            <span id="statusLabel">Loading…</span>
+          </div>
+        </div>
+        <div class="record-summary" id="recordSummary"></div>
+        <div class="chips" id="chipsWrap"></div>
+        <div class="missing-note" id="missingNote"></div>
+        <div class="decision-note" id="decisionNote"></div>
+        <button class="pdf-btn" id="pdfBtn">Download PDF Record</button>
+        <button class="pdf-btn" id="idCodeBtn" style="margin-top:8px;">🪪 Show My ID Code</button>
+      </div>
+
+      <div id="feeSection" style="display:none;"></div>
+
+      <div class="section-title">Attendance & Remarks</div>
+      <div id="eventsWrap"><div class="loading">Loading your records…</div></div>
+    </div>
+  </div>
+
+  <div class="footer">&copy; 2026 Ramon Magsaysay Memorial Colleges, Inc. &middot; Student Services Office</div>
+
+  <div id="pdfQrTarget" style="position:absolute; left:-9999px; top:-9999px;"></div>
+
+  <div id="idCodeModal" style="display:none; position:fixed; inset:0; background:rgba(10,12,30,0.92); z-index:9999; align-items:center; justify-content:center; flex-direction:column; padding:20px;">
+    <button id="idCodeCloseBtn" aria-label="Close" style="position:absolute; top:16px; right:20px; background:none; border:none; color:#fff; font-size:30px; cursor:pointer; line-height:1;">&times;</button>
+    <div style="background:#fff; border-radius:16px; padding:28px 24px; max-width:420px; width:100%; text-align:center; box-shadow:0 20px 60px rgba(0,0,0,0.4);">
+      <div id="idCodeModalName" style="font-weight:700; font-size:17px; color:#161b67; margin-bottom:4px;"></div>
+      <div id="idCodeModalMeta" style="font-size:12.5px; color:#777; margin-bottom:16px;"></div>
+      <svg id="idCodeBarcodeSvg" style="width:100%; height:auto;"></svg>
+      <div style="font-size:11.5px; color:#999; margin-top:14px;">Hold steady for the scanner &middot; increase screen brightness if it won't read</div>
+      <div style="display:flex; gap:10px; margin-top:16px;">
+        <button id="idCodeSaveBtn" style="flex:1; padding:12px; border-radius:10px; border:1.5px solid #161b67; background:#fff; color:#161b67; font-weight:600; font-size:14px; cursor:pointer;">💾 Save</button>
+        <button id="idCodePrintBtn" style="flex:1; padding:12px; border-radius:10px; border:none; background:#161b67; color:#fff; font-weight:600; font-size:14px; cursor:pointer;">Print</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="pwModal" class="pw-modal" role="dialog" aria-modal="true" aria-labelledby="pwModalTitle">
+    <div class="pw-modal-card">
+      <h2 id="pwModalTitle">Change Password</h2>
+      <p class="sub" id="pwModalSub"></p>
+      <div class="err" id="pwErr"></div>
+      <div class="pw-ok" id="pwOk"></div>
+      <div class="field" id="pwCurrentField">
+        <label for="pwCurrent">Current Password</label>
+        <div class="pw-wrap">
+          <input type="password" id="pwCurrent" autocomplete="current-password">
+          <button type="button" class="pw-toggle" data-target="pwCurrent">Show</button>
+        </div>
+      </div>
+      <div class="field">
+        <label for="pwNew">New Password</label>
+        <div class="pw-wrap">
+          <input type="password" id="pwNew" autocomplete="new-password">
+          <button type="button" class="pw-toggle" data-target="pwNew">Show</button>
+        </div>
+      </div>
+      <div class="field">
+        <label for="pwConfirm">Confirm New Password</label>
+        <div class="pw-wrap">
+          <input type="password" id="pwConfirm" autocomplete="new-password">
+          <button type="button" class="pw-toggle" data-target="pwConfirm">Show</button>
+        </div>
+      </div>
+      <ul class="pw-rules" id="pwRules">
+        <li data-rule="len">At least 8 characters</li>
+        <li data-rule="special">At least 1 special character (e.g. ! @ # $ % &amp; *)</li>
+        <li data-rule="match">Passwords match</li>
+      </ul>
+      <button class="btn" id="pwSaveBtn" type="button">Save New Password</button>
+      <button class="pw-cancel" id="pwCancelBtn" type="button">Cancel</button>
+    </div>
+  </div>
+
+<script src="app.js?v=4"></script>
+</body>
+</html>
